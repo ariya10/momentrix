@@ -1,0 +1,128 @@
+{
+  "id": "MtrxV2ConnectionTest",
+  "name": "MOMENTRIX V2 - Backend Connection Test",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "momentrix/v2/connection-test",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "c0000000-0000-4000-8000-000000000001",
+      "webhookId": "c0000000-0000-4000-8000-000000000011",
+      "name": "Connection test webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:8000/health",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "c0000000-0000-4000-8000-000000000002",
+      "name": "Check FastAPI health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "health-ok",
+              "leftValue": "={{ $json.status === 'ok' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c0000000-0000-4000-8000-000000000003",
+      "name": "Verify health response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "errorMessage": "FastAPI returned an unexpected health response."
+      },
+      "id": "c0000000-0000-4000-8000-000000000004",
+      "name": "Unexpected health response",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [660, 410]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Connection test webhook": {
+      "main": [
+        [
+          {
+            "node": "Check FastAPI health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check FastAPI health": {
+      "main": [
+        [
+          {
+            "node": "Verify health response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify health response": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Unexpected health response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "versionId": "c0000000-0000-4000-8000-000000000099",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

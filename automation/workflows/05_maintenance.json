@@ -1,0 +1,103 @@
+{
+  "id": "MtrxV2Maint00005",
+  "name": "MOMENTRIX V2 · Maintenance",
+  "nodes": [
+    {
+      "id": "ca540ed2-7820-4e6c-a010-050000000001",
+      "name": "Maintenance schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-050000000002",
+      "name": "Maintenance settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "backend_url",
+              "name": "backend_url",
+              "type": "string",
+              "value": "http://host.docker.internal:8000"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-050000000003",
+      "name": "Record workspace diagnostics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $('Maintenance settings').first().json.backend_url.replace(/\\/$/, '') + '/api/v2/internal/maintenance' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "method": "POST"
+      }
+    }
+  ],
+  "connections": {
+    "Maintenance schedule": {
+      "main": [
+        [
+          {
+            "node": "Maintenance settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maintenance settings": {
+      "main": [
+        [
+          {
+            "node": "Record workspace diagnostics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "errorWorkflow": "ttCvGQYy2llJ1gd3"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

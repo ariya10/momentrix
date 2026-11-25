@@ -1,0 +1,15 @@
+{
+  "name": "Kai Cenat (illustrative preset)",
+  "creator": "Kai Cenat",
+  "category": "Kai Cenat reactions and entertaining moments",
+  "language": "en",
+  "min_duration": 20,
+  "max_duration": 60,
+  "hook_requires": ["Kai Cenat"],
+  "required_hashtags": ["#KAICENAT"],
+  "prohibited_content": ["Misleading or negative portrayal", "Added logos and watermarks"],
+  "layout": "fit",
+  "authorization_required": true,
+  "manual_review": ["Verify creator identity, source permission, current campaign terms and dates.", "Check whether an official Short already uses this moment."],
+  "allow_added_branding": false
+}

@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+input/*
+output/*
+cache/*
+logs/*
+data/*
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+storage/
+!.gitkeep

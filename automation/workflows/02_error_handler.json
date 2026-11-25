@@ -1,0 +1,297 @@
+{
+  "id": "ttCvGQYy2llJ1gd3",
+  "name": "MOMENTRIX V2 - Error Handler - Hardened",
+  "nodes": [
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000001",
+      "name": "Workflow failed",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -120
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000002",
+      "name": "Monitoring deadline",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        120
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000003",
+      "name": "Extract execution details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        250,
+        -120
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "execution_id",
+              "name": "execution_id",
+              "type": "string",
+              "value": "={{ String($json.execution?.id || 'activation-' + ($json.workflow?.id || 'unknown')).slice(0,120) }}"
+            },
+            {
+              "id": "workflow_name",
+              "name": "workflow_name",
+              "type": "string",
+              "value": "={{ String($json.workflow?.name || 'n8n workflow').slice(0,120) }}"
+            },
+            {
+              "id": "node",
+              "name": "node",
+              "type": "string",
+              "value": "={{ String($json.execution?.lastNodeExecuted || $json.trigger?.error?.node?.name || 'activation').slice(0,120) }}"
+            },
+            {
+              "id": "summary",
+              "name": "summary",
+              "type": "string",
+              "value": "={{ $json.execution?.lastNodeExecuted === 'Backend recorded failure' ? 'The backend reported a terminal processing failure.' : 'n8n could not complete this workflow. Check the failed node and backend state.' }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000004",
+      "name": "Diagnostic settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        500,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "backend_url",
+              "name": "backend_url",
+              "type": "string",
+              "value": "http://host.docker.internal:8000"
+            },
+            {
+              "id": "execution_id",
+              "name": "execution_id",
+              "type": "string",
+              "value": "={{ $json.execution_id }}"
+            },
+            {
+              "id": "workflow_name",
+              "name": "workflow_name",
+              "type": "string",
+              "value": "={{ $json.workflow_name }}"
+            },
+            {
+              "id": "node",
+              "name": "node",
+              "type": "string",
+              "value": "={{ $json.node }}"
+            },
+            {
+              "id": "summary",
+              "name": "summary",
+              "type": "string",
+              "value": "={{ $json.summary }}"
+            },
+            {
+              "id": "run_id",
+              "name": "run_id",
+              "type": "string",
+              "value": "={{ $json.run_id || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000005",
+      "name": "Record automation error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        730,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $('Diagnostic settings').first().json.backend_url.replace(/\\/$/, '') + '/api/v2/internal/automation/errors' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({execution_id:$('Diagnostic settings').first().json.execution_id,workflow_name:$('Diagnostic settings').first().json.workflow_name,node:$('Diagnostic settings').first().json.node,summary:$('Diagnostic settings').first().json.summary,run_id:$('Diagnostic settings').first().json.run_id || null}) }}"
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000006",
+      "name": "Can reconcile status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        950,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ (typeof $json.run_id === 'string' && /^[a-f0-9]{32}$/.test($json.run_id)) && $('Diagnostic settings').first().json.node !== 'Backend recorded failure' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000007",
+      "name": "Reconcile current backend state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1190,
+        -80
+      ],
+      "parameters": {
+        "url": "={{ $('Diagnostic settings').first().json.backend_url.replace(/\\/$/, '') + '/api/v2/internal/runs/' + encodeURIComponent($json.run_id) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-020000000008",
+      "name": "Diagnostic recorded",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1190,
+        140
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Workflow failed": {
+      "main": [
+        [
+          {
+            "node": "Extract execution details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract execution details": {
+      "main": [
+        [
+          {
+            "node": "Diagnostic settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monitoring deadline": {
+      "main": [
+        [
+          {
+            "node": "Diagnostic settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diagnostic settings": {
+      "main": [
+        [
+          {
+            "node": "Record automation error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record automation error": {
+      "main": [
+        [
+          {
+            "node": "Can reconcile status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can reconcile status": {
+      "main": [
+        [
+          {
+            "node": "Reconcile current backend state",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Diagnostic recorded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

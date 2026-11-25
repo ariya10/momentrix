@@ -1,0 +1,103 @@
+{
+  "id": "MtrxV2Ingest0003",
+  "name": "MOMENTRIX V2 · Scheduled ingestion",
+  "nodes": [
+    {
+      "id": "ca540ed2-7820-4e6c-a010-030000000001",
+      "name": "Authorized ingestion schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-030000000002",
+      "name": "Input scan settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        230,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "backend_url",
+              "name": "backend_url",
+              "type": "string",
+              "value": "http://host.docker.internal:8000"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-030000000003",
+      "name": "Scan configured authorized folder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $('Input scan settings').first().json.backend_url.replace(/\\/$/, '') + '/api/v2/internal/ingestion/scan' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "method": "POST"
+      }
+    }
+  ],
+  "connections": {
+    "Authorized ingestion schedule": {
+      "main": [
+        [
+          {
+            "node": "Input scan settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input scan settings": {
+      "main": [
+        [
+          {
+            "node": "Scan configured authorized folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "errorWorkflow": "ttCvGQYy2llJ1gd3"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

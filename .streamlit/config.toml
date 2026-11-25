@@ -1,0 +1,14 @@
+[theme]
+base = "dark"
+primaryColor = "#9eee86"
+backgroundColor = "#101317"
+secondaryBackgroundColor = "#1c2229"
+textColor = "#f0f3f5"
+font = "sans serif"
+
+[server]
+# Leave room for multipart headers on a 2 GiB video.
+maxUploadSize = 2049
+
+[browser]
+gatherUsageStats = false

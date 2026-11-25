@@ -1,0 +1,600 @@
+{
+  "id": "MtrxV2Export0004",
+  "name": "MOMENTRIX V2 · Review and export",
+  "nodes": [
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000001",
+      "name": "Authorized export webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        80
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "momentrix/v2/export",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "7bc99481-5551-4186-b407-000000000004"
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000002",
+      "name": "Validate identifiers",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ !!($json.body && (typeof $json.body.export_id === 'string' && /^[a-f0-9]{32}$/.test($json.body.export_id)) && Array.isArray($json.body.clip_ids) && $json.body.clip_ids.length >= 1 && $json.body.clip_ids.length <= 100 && $json.body.clip_ids.every(id => typeof id === 'string' && /^[A-Za-z0-9_:-]{1,120}$/.test(id)) && $json.body.clip_ids.every((id,i,a) => a.indexOf(id) === i)) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000003",
+      "name": "Reject invalid request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"detail\":\"Invalid request identifiers\"}",
+        "options": {
+          "responseCode": 422
+        }
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000004",
+      "name": "Backend configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        40
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "backend_url",
+              "name": "backend_url",
+              "type": "string",
+              "value": "http://host.docker.internal:8000"
+            },
+            {
+              "id": "export_id",
+              "name": "export_id",
+              "type": "string",
+              "value": "={{ $json.body.export_id }}"
+            },
+            {
+              "id": "clip_ids",
+              "name": "clip_ids",
+              "type": "array",
+              "value": "={{ $json.body.clip_ids }}"
+            },
+            {
+              "id": "max_polls",
+              "name": "max_polls",
+              "type": "number",
+              "value": 240
+            },
+            {
+              "id": "deadline_ms",
+              "name": "deadline_ms",
+              "type": "number",
+              "value": "={{ Date.now() + 2 * 60 * 60 * 1000 }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000005",
+      "name": "Start persisted export",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        670,
+        40
+      ],
+      "parameters": {
+        "url": "={{ $('Backend configuration').first().json.backend_url.replace(/\\/$/, '') + '/api/v2/internal/exports/' + encodeURIComponent($('Backend configuration').first().json.export_id) + '/start' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({export_id: $('Backend configuration').first().json.export_id, clip_ids: $('Backend configuration').first().json.clip_ids}) }}"
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000006",
+      "name": "Verify start receipt",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        890,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.id === $('Backend configuration').first().json.export_id && typeof $json.status === 'string' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000007",
+      "name": "Invalid backend receipt",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        235
+      ],
+      "parameters": {
+        "errorMessage": "Backend returned an invalid start receipt."
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000008",
+      "name": "Acknowledge accepted export",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({export_id: $('Backend configuration').first().json.export_id, execution_id: String($execution.id), status: $json.status}) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000009",
+      "name": "Wait before polling",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1350,
+        0
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 30,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000010",
+      "name": "Read persisted export",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1570,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $('Backend configuration').first().json.backend_url.replace(/\\/$/, '') + '/api/v2/internal/exports/' + encodeURIComponent($('Backend configuration').first().json.export_id) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000011",
+      "name": "Route backend state",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1790,
+        0
+      ],
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 6,
+        "output": "={{ $json.id !== $('Backend configuration').first().json.export_id ? 5 : ['completed','completed_with_warnings'].includes($json.status) ? 0 : $json.status === 'awaiting_review' ? 1 : $json.status === 'failed' ? 2 : $json.status === 'cancelled' ? 3 : 4 }}"
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000012",
+      "name": "Completed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        -380
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000013",
+      "name": "Awaiting human review",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        -230
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000014",
+      "name": "Backend recorded failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        -80
+      ],
+      "parameters": {
+        "errorMessage": "={{ 'Backend recorded failure for export ' + $('Backend configuration').first().json.export_id }}"
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000015",
+      "name": "Cancelled",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        70
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000016",
+      "name": "Exceeded monitoring window",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2040,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $runIndex + 1 >= $('Backend configuration').first().json.max_polls || Date.now() >= $('Backend configuration').first().json.deadline_ms }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000017",
+      "name": "Invalid polling receipt",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        440
+      ],
+      "parameters": {
+        "errorMessage": "Backend polling receipt did not identify the requested operation."
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000018",
+      "name": "Prepare monitoring diagnostic",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2280,
+        180
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "execution_id",
+              "name": "execution_id",
+              "type": "string",
+              "value": "={{ String($execution.id) }}"
+            },
+            {
+              "id": "workflow_name",
+              "name": "workflow_name",
+              "type": "string",
+              "value": "={{ $workflow.name }}"
+            },
+            {
+              "id": "node",
+              "name": "node",
+              "type": "string",
+              "value": "Exceeded monitoring window"
+            },
+            {
+              "id": "summary",
+              "name": "summary",
+              "type": "string",
+              "value": "Polling deadline reached. Check the persisted backend state."
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca540ed2-7820-4e6c-a010-040000000019",
+      "name": "Record monitoring timeout",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2510,
+        180
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": "ttCvGQYy2llJ1gd3",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Authorized export webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate identifiers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate identifiers": {
+      "main": [
+        [
+          {
+            "node": "Backend configuration",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject invalid request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backend configuration": {
+      "main": [
+        [
+          {
+            "node": "Start persisted export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start persisted export": {
+      "main": [
+        [
+          {
+            "node": "Verify start receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify start receipt": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge accepted export",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid backend receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge accepted export": {
+      "main": [
+        [
+          {
+            "node": "Wait before polling",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before polling": {
+      "main": [
+        [
+          {
+            "node": "Read persisted export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read persisted export": {
+      "main": [
+        [
+          {
+            "node": "Route backend state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route backend state": {
+      "main": [
+        [
+          {
+            "node": "Completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Awaiting human review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Backend recorded failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Exceeded monitoring window",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid polling receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exceeded monitoring window": {
+      "main": [
+        [
+          {
+            "node": "Prepare monitoring diagnostic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait before polling",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare monitoring diagnostic": {
+      "main": [
+        [
+          {
+            "node": "Record monitoring timeout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "errorWorkflow": "ttCvGQYy2llJ1gd3"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}
